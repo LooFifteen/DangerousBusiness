@@ -1,9 +1,8 @@
 ﻿using System.Collections.Generic;
-using GameNetcodeStuff;
 
-namespace DangerousBusiness.Notes;
+namespace DangerousBusiness.Note;
 
-public interface IPlayerNote : IComparer<PlayerControllerB>
+public interface INote : IComparer<Player.Player>
 {
     /// <summary>
     /// Display name of the note, will be shown under "Notes:"

@@ -1,16 +1,21 @@
 ﻿using System.Collections.Generic;
 
-namespace DangerousBusiness.Notes;
+namespace DangerousBusiness.Note;
 
-public class PlayerNoteManager
+public class NoteManager
 {
-    private readonly ISet<IPlayerNote> _playerNotes = new HashSet<IPlayerNote>();
+    private readonly ISet<INote> _playerNotes = new HashSet<INote>();
+
+    internal NoteManager()
+    {
+
+    }
 
     /// <summary>
     /// Add a custom player note.
     /// </summary>
     /// <param name="note">note to add</param>
-    public void AddPlayerNote(IPlayerNote note)
+    public void AddPlayerNote(INote note)
     {
         _playerNotes.Add(note);
         DangerousBusiness.GetInstance().GetLogger().LogInfo(_playerNotes.Count + " player notes loaded!");
@@ -20,7 +25,7 @@ public class PlayerNoteManager
     /// Remove a custom player note.
     /// </summary>
     /// <param name="note">note to remove</param>
-    public void RemovePlayerNote(IPlayerNote note)
+    public void RemovePlayerNote(INote note)
     {
         _playerNotes.Remove(note);
     }
@@ -29,8 +34,8 @@ public class PlayerNoteManager
     /// Get an unmodifiable set of all player notes.
     /// </summary>
     /// <returns>an unmodifiable set</returns>
-    public ISet<IPlayerNote> GetPlayerNotes()
+    public ISet<INote> GetPlayerNotes()
     {
-        return new HashSet<IPlayerNote>(_playerNotes);
+        return new HashSet<INote>(_playerNotes);
     }
 }

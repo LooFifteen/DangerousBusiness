@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using GameNetcodeStuff;
+using DangerousBusiness.Event;
 using HarmonyLib;
 
 namespace DangerousBusiness.Patches;
@@ -15,23 +15,26 @@ public class StartOfRoundPatch
     /// <returns></returns>
     [HarmonyPatch("WritePlayerNotes")]
     [HarmonyPrefix]
-    private static bool WritePlayerNotes(ref StartOfRound __instance)
+    private static bool PreWritePlayerNotes(ref StartOfRound __instance)
     {
         // get all player statistics
         var playerStatistics = __instance.gameStats.allPlayerStats;
 
+        var plugin = DangerousBusiness.GetInstance();
+
         // create map of player to player statistics
-        var players = new Dictionary<PlayerControllerB, PlayerStats>();
+        var players = new Dictionary<Player.Player, PlayerStats>();
         for (var index = 0; index < playerStatistics.Length; ++index)
         {
-            var player = __instance.allPlayerScripts[index];
+            var controller = __instance.allPlayerScripts[index];
+            var player = plugin.GetPlayerManager().GetPlayerByController(controller);
             var statistics = playerStatistics[index];
 
             // set active player flag on certain conditions
             // this is required to allow vanilla end of game statistics to work
-            statistics.isActivePlayer = player.disconnectedMidGame
-                                        || player.isPlayerDead
-                                        || player.isPlayerControlled;
+            statistics.isActivePlayer = controller.disconnectedMidGame
+                                        || controller.isPlayerDead
+                                        || controller.isPlayerControlled;
 
             // skip player if they're not active
             if (!statistics.isActivePlayer) continue;
@@ -39,7 +42,12 @@ public class StartOfRoundPatch
             players[player] = statistics;
         }
 
-        var plugin = DangerousBusiness.GetInstance();
+        // create a map of player to player notes
+        var playerNotes = new Dictionary<Player.Player, ISet<string>>();
+        foreach (var player in players.Keys)
+        {
+            playerNotes[player] = new HashSet<string>();
+        }
 
         // iterate through all player notes
         foreach (var note in plugin.GetPlayerNoteManager().GetPlayerNotes())
@@ -50,10 +58,47 @@ public class StartOfRoundPatch
 
             // add to player with the highest index
             var highestPlayer = sortedPlayers.Last();
-            players[highestPlayer].playerNotes.Add(note.GetName());
+            playerNotes[highestPlayer].Add(note.GetName());
+        }
+
+        // iterate through all players
+        foreach (var player in playerNotes.Keys)
+        {
+            // construct and call pre-event
+            var notesAddEvent = new NotesAddEvent.PreEvent(player, playerNotes[player]);
+            NotesAddEvent.Pre.Invoke(notesAddEvent);
+
+            // extract notes from event
+            var notes = notesAddEvent.GetNotes();
+
+            // add all notes to the player
+            foreach (var note in notes)
+            {
+                players[player].playerNotes.Add(note);
+            }
+
+            // construct and call post-event
+            var postEvent = new NotesAddEvent.PostEvent(player, notes);
+            NotesAddEvent.Post.Invoke(postEvent);
         }
 
         // todo: include vanilla player notes
         return false; // never calculate vanilla player notes
+    }
+
+    [HarmonyPatch("StartGame")]
+    [HarmonyPrefix]
+    private static void PreStartGame()
+    {
+        if (RoundStartEvent.Pre == null) return;
+        RoundStartEvent.Pre.Invoke();
+    }
+
+    [HarmonyPatch("StartGame")]
+    [HarmonyPostfix]
+    private static void PostStartGame()
+    {
+        if (RoundStartEvent.Post == null) return;
+        RoundStartEvent.Post.Invoke();
     }
 }

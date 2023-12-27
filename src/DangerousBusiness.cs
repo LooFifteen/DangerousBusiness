@@ -1,6 +1,7 @@
 ﻿using BepInEx.Logging;
-using DangerousBusiness.Notes;
-using GameNetcodeStuff;
+using DangerousBusiness.Event;
+using DangerousBusiness.Note;
+using DangerousBusiness.Player;
 
 namespace DangerousBusiness;
 
@@ -15,15 +16,24 @@ public class DangerousBusiness : BaseUnityPlugin
     private static DangerousBusiness _plugin;
 
     private readonly Harmony _harmony = new (PluginGuid);
-    private readonly PlayerNoteManager _playerNoteManager = new ();
+    private readonly PlayerManager _playerManager = new ();
+    private readonly NoteManager _noteManager = new ();
 
     private void Awake()
     {
         // set the static instance
         _plugin = this;
 
-        // todo: test player notes
-        _playerNoteManager.AddPlayerNote(new HealthiestPlayerNote());
+        // todo: tests
+        _noteManager.AddPlayerNote(new HealthiestPlayerNote());
+        RoundStartEvent.Post.AddListener(() =>
+        {
+            HUDManager.Instance.AddTextToChatOnServer("The round has started!");
+        });
+        NotesAddEvent.Pre.AddListener(e =>
+        {
+            e.GetNotes().Add("absolute loser");
+        });
 
         // patch the game
         _harmony.PatchAll();
@@ -51,25 +61,34 @@ public class DangerousBusiness : BaseUnityPlugin
     }
 
     /// <summary>
+    /// The player manager.
+    /// </summary>
+    /// <returns></returns>
+    public PlayerManager GetPlayerManager()
+    {
+        return _playerManager;
+    }
+
+    /// <summary>
     /// The custom player note manager.
     /// </summary>
     /// <returns>note manager</returns>
-    public PlayerNoteManager GetPlayerNoteManager()
+    public NoteManager GetPlayerNoteManager()
     {
-        return _playerNoteManager;
+        return _noteManager;
     }
 
-    private class HealthiestPlayerNote : IPlayerNote
+    private class HealthiestPlayerNote : INote
     {
         public string GetName()
         {
             return "Healthiest Player";
         }
 
-        public int Compare(PlayerControllerB x, PlayerControllerB y)
+        public int Compare(Player.Player x, Player.Player y)
         {
             if (x == null || y == null) return 0;
-            return x.health.CompareTo(y.health);
+            return x.GetController().health.CompareTo(y.GetController().health);
         }
     }
 }
